@@ -1,0 +1,26 @@
+= etch
+Al Idian <al.idian@acm.org>
+:description: View PDF metadata
+
+`etch` uses `exiftool` to view PDF metadata.
+Please note this software is provided "as is", without warranty of any kind.
+
+Usage:
+
+1. Clone this repo.
+2. (Optional) Set permissions and view the help text.
+
++
+[source,bash]
+----
+chmod 700 ./etch
+./etch --help
+----
+
+3. Run `etch`.
+
++
+[source,bash]
+----
+./etch /your-file.pdf
+----

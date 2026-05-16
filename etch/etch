@@ -1,0 +1,94 @@
+#!/usr/bin/env python3
+
+# etch - View PDF metadata
+
+
+from pathlib import Path
+import argparse
+import json
+import shutil
+import subprocess
+
+
+METADATA_TAGS = [
+    "-FileName",
+    "-Title",
+    "-Author"
+]
+
+
+def start_app():
+    """View PDF metadata."""
+
+    if not shutil.which("exiftool"):
+        print("Unable to find exiftool. Is it installed?")
+        exit()
+
+    pdf_path = get_args()
+
+    metadata = get_metadata(pdf_path)
+    if metadata is None:
+        exit()
+
+    print_metadata(metadata)
+
+
+def get_args():
+    """Configure argument parser including help text.
+
+    Returns:
+        Path to the PDF
+    """
+
+    parser = argparse.ArgumentParser(
+        description="etch - view pdf metadata",
+        epilog="https://github.com/idianal/toys-python/etch")
+
+    parser.add_argument("file", help="path to pdf")
+
+    args = parser.parse_args()
+    return args.file
+
+
+def get_metadata(pdf_path):
+    """Get metadata from a PDF.
+
+    Arguments:
+        pdf_path - Path to the PDF
+
+    Returns:
+        Dict of metadata, or None on error
+    """
+
+    path = Path(pdf_path)
+
+    if not path.exists():
+        print("File not found: " + pdf_path)
+        return None
+
+    if path.suffix.lower() != ".pdf":
+        print("Not a PDF: " + pdf_path)
+        return None
+
+    result = subprocess.run(
+        ["exiftool", "-j"] + METADATA_TAGS + [str(path)],
+        capture_output=True,
+        text=True)
+
+    return json.loads(result.stdout)[0]
+
+
+def print_metadata(metadata):
+    """Print file name, title, and author from metadata.
+
+    Arguments:
+        metadata - Dict of metadata from exiftool
+    """
+
+    print("File Name : " + metadata.get("FileName", "-"))
+    print("Title     : " + metadata.get("Title", "-"))
+    print("Author    : " + metadata.get("Author", "-"))
+
+
+if __name__ == "__main__":
+    start_app()
