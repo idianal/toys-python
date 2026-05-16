@@ -1,0 +1,17 @@
+= toys-python
+Al Idian <al.idian@acm.org>
+:description: A collection of (very) small programs in Python
+
+`toys` is a collection of (very) small programs, each meant to show just one or two competencies.
+
+Setup:
+
+[source,bash]
+----
+# Start a toolbox container
+docker run --name toys-python -it -v "$(pwd)":/home/idianal/toys-python idianal/toolbox
+
+# Inside the container, install required packages
+apt update
+apt install -y python3
+----
