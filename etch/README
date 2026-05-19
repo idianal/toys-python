@@ -1,8 +1,8 @@
 = etch
 Al Idian <al.idian@acm.org>
-:description: View PDF metadata
+:description: Edit PDF metadata
 
-`etch` uses `exiftool` to view PDF metadata.
+`etch` uses `exiftool` to edit PDF metadata.
 Please note this software is provided "as is", without warranty of any kind.
 
 Usage:
@@ -22,5 +22,9 @@ chmod 700 ./etch
 +
 [source,bash]
 ----
+# View metadata
 ./etch /your-file.pdf
+
+# Edit metadata
+./etch /your-file.pdf --title "My Title" --author "My Author"
 ----

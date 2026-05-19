@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# etch - View PDF metadata
+# etch - Edit PDF metadata
 
 
 from pathlib import Path
@@ -8,6 +8,7 @@ import argparse
 import json
 import shutil
 import subprocess
+import sys
 
 
 METADATA_TAGS = [
@@ -18,36 +19,54 @@ METADATA_TAGS = [
 
 
 def start_app():
-    """View PDF metadata."""
+    """Edit PDF metadata."""
 
     if not shutil.which("exiftool"):
         print("Unable to find exiftool. Is it installed?")
-        exit()
+        sys.exit(1)
 
-    pdf_path = get_args()
+    args = get_args()
 
-    metadata = get_metadata(pdf_path)
+    metadata = get_metadata(Path(args.file))
     if metadata is None:
-        exit()
+        sys.exit(1)
 
-    print_metadata(metadata)
+    if args.title is None and args.author is None:
+        print_metadata(metadata)
+    else:
+        print("Before:")
+        print_metadata(metadata)
+
+        print()
+        print("After:")
+        print_metadata(preview_metadata(metadata, args.title, args.author))
+
+        print()
+        print("Apply changes? [y/n] ", end="", flush=True)
+        if input().strip().lower() != "y":
+            print("No changes made.")
+            sys.exit()
+
+        if set_metadata(Path(args.file), args.title, args.author):
+            print("Done.")
 
 
 def get_args():
     """Configure argument parser including help text.
 
     Returns:
-        Path to the PDF
+        Parsed arguments namespace
     """
 
     parser = argparse.ArgumentParser(
-        description="etch - view pdf metadata",
+        description="etch - edit pdf metadata",
         epilog="https://github.com/idianal/toys-python/etch")
 
     parser.add_argument("file", help="path to pdf")
+    parser.add_argument("--title", help="set title metadata")
+    parser.add_argument("--author", help="set author metadata")
 
-    args = parser.parse_args()
-    return args.file
+    return parser.parse_args()
 
 
 def get_metadata(pdf_path):
@@ -60,22 +79,77 @@ def get_metadata(pdf_path):
         Dict of metadata, or None on error
     """
 
-    path = Path(pdf_path)
-
-    if not path.exists():
-        print("File not found: " + pdf_path)
+    if not pdf_path.exists():
+        print("File not found: " + str(pdf_path))
         return None
 
-    if path.suffix.lower() != ".pdf":
-        print("Not a PDF: " + pdf_path)
+    if pdf_path.suffix.lower() != ".pdf":
+        print("Not a PDF: " + str(pdf_path))
         return None
 
     result = subprocess.run(
-        ["exiftool", "-j"] + METADATA_TAGS + [str(path)],
+        ["exiftool", "-j"] + METADATA_TAGS + [str(pdf_path)],
         capture_output=True,
         text=True)
 
+    if result.returncode != 0:
+        print("Error reading metadata: " + result.stderr.strip())
+        return None
+
     return json.loads(result.stdout)[0]
+
+
+def set_metadata(pdf_path, title, author):
+    """Write title and/or author metadata to a PDF.
+
+    Arguments:
+        pdf_path - Path to the PDF
+        title    - New title value, or None to leave unchanged
+        author   - New author value, or None to leave unchanged
+
+    Returns:
+        True on success, False on error
+    """
+
+    command = ["exiftool", "-overwrite_original"]
+
+    if title is not None:
+        command.append("-Title=" + title)
+
+    if author is not None:
+        command.append("-Author=" + author)
+
+    command.append(str(pdf_path))
+    result = subprocess.run(command, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print("Error writing metadata: " + result.stderr.strip())
+        return False
+
+    return True
+
+
+def preview_metadata(metadata, title, author):
+    """Return a copy of metadata with proposed edits applied (without writing).
+
+    Arguments:
+        metadata - Dict of current metadata from exiftool
+        title    - Proposed title value, or None to leave unchanged
+        author   - Proposed author value, or None to leave unchanged
+
+    Returns:
+        Dict of metadata reflecting the proposed changes
+    """
+
+    preview = dict(metadata)
+
+    if title is not None:
+        preview["Title"] = title
+
+    if author is not None:
+        preview["Author"] = author
+
+    return preview
 
 
 def print_metadata(metadata):
