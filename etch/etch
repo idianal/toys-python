@@ -2,21 +2,18 @@
 
 # etch - Edit PDF metadata
 
-
-from pathlib import Path
 import argparse
 import json
 import shutil
 import subprocess
 import sys
-
+from pathlib import Path
 
 METADATA_TAGS = [
     "-FileName",
     "-Title",
     "-Author"
 ]
-
 
 def start_app():
     """Edit PDF metadata."""
@@ -50,9 +47,9 @@ def start_app():
         if set_metadata(Path(args.file), args.title, args.author):
             print("Done.")
 
-
 def get_args():
-    """Configure argument parser including help text.
+    """
+    Configure argument parser including help text.
 
     Returns:
         Parsed arguments namespace
@@ -60,7 +57,8 @@ def get_args():
 
     parser = argparse.ArgumentParser(
         description="etch - edit pdf metadata",
-        epilog="https://github.com/idianal/toys-python/etch")
+        epilog="https://github.com/idianal/toys-python/etch"
+    )
 
     parser.add_argument("file", help="path to pdf")
     parser.add_argument("--title", help="set title metadata")
@@ -68,9 +66,9 @@ def get_args():
 
     return parser.parse_args()
 
-
 def get_metadata(pdf_path):
-    """Get metadata from a PDF.
+    """
+    Get metadata from a PDF.
 
     Arguments:
         pdf_path - Path to the PDF
@@ -90,7 +88,8 @@ def get_metadata(pdf_path):
     result = subprocess.run(
         ["exiftool", "-j"] + METADATA_TAGS + [str(pdf_path)],
         capture_output=True,
-        text=True)
+        text=True
+    )
 
     if result.returncode != 0:
         print("Error reading metadata: " + result.stderr.strip())
@@ -98,14 +97,14 @@ def get_metadata(pdf_path):
 
     return json.loads(result.stdout)[0]
 
-
 def set_metadata(pdf_path, title, author):
-    """Write title and/or author metadata to a PDF.
+    """
+    Write title and/or author metadata to a PDF.
 
     Arguments:
         pdf_path - Path to the PDF
-        title    - New title value, or None to leave unchanged
-        author   - New author value, or None to leave unchanged
+        title - New title value, or None to leave unchanged
+        author - New author value, or None to leave unchanged
 
     Returns:
         True on success, False on error
@@ -128,14 +127,14 @@ def set_metadata(pdf_path, title, author):
 
     return True
 
-
 def preview_metadata(metadata, title, author):
-    """Return a copy of metadata with proposed edits applied (without writing).
+    """
+    Return a copy of metadata with proposed edits applied (without writing).
 
     Arguments:
         metadata - Dict of current metadata from exiftool
-        title    - Proposed title value, or None to leave unchanged
-        author   - Proposed author value, or None to leave unchanged
+        title - Proposed title value, or None to leave unchanged
+        author - Proposed author value, or None to leave unchanged
 
     Returns:
         Dict of metadata reflecting the proposed changes
@@ -151,9 +150,9 @@ def preview_metadata(metadata, title, author):
 
     return preview
 
-
 def print_metadata(metadata):
-    """Print file name, title, and author from metadata.
+    """
+    Print file name, title, and author from metadata.
 
     Arguments:
         metadata - Dict of metadata from exiftool
@@ -162,7 +161,6 @@ def print_metadata(metadata):
     print("File Name : " + metadata.get("FileName", "-"))
     print("Title     : " + metadata.get("Title", "-"))
     print("Author    : " + metadata.get("Author", "-"))
-
 
 if __name__ == "__main__":
     start_app()

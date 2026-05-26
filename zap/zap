@@ -2,12 +2,11 @@
 
 # zap - Completely remove unwanted macOS apps
 
-
-from pathlib import Path
 import argparse
 import plistlib
 import subprocess
-
+import sys
+from pathlib import Path
 
 APP_IDENTIFIER_KEYS = [
     "CFBundleIdentifier",
@@ -24,7 +23,6 @@ DIRECTORIES_TO_SEARCH = [
     Path("/var")
 ]
 
-
 def start_app():
     """Completely remove unwanted macOS apps."""
 
@@ -33,7 +31,7 @@ def start_app():
     print("Retrieving app identifiers...")
     identifiers = get_identifiers(app_path, verbose)
     if not identifiers:
-        exit()
+        sys.exit()
 
     print("Looking for related files and directories...")
     matches = search_directories(DIRECTORIES_TO_SEARCH, identifiers)
@@ -46,9 +44,9 @@ def start_app():
     print("Operation complete.")
     print("Please review the deleted files before emptying trash.")
 
-
 def get_args():
-    """Configure argument parser including help text.
+    """
+    Configure argument parser including help text.
 
     Returns:
         Tuple of parsed arguments
@@ -56,19 +54,22 @@ def get_args():
 
     parser = argparse.ArgumentParser(
         description="zap - completely remove unwanted macos apps",
-        epilog="https://github.com/idianal/toys-python/zap")
+        epilog="https://github.com/idianal/toys-python/zap"
+    )
 
     parser.add_argument("app", help="absolute path of app to remove")
-    parser.add_argument("--verbose",
-                        help="increase output verbosity",
-                        action="store_true")
+    parser.add_argument(
+        "--verbose",
+        help="increase output verbosity",
+        action="store_true"
+    )
 
     args = parser.parse_args()
     return args.app, args.verbose
 
-
 def get_identifiers(app_path, verbose=False):
-    """Get identifiers for the app.
+    """
+    Get identifiers for the app.
 
     Arguments:
         app_path - Path to the app
@@ -81,11 +82,14 @@ def get_identifiers(app_path, verbose=False):
     try:
         app_info_path = (
             Path(app_path, "Contents/Info.plist")
-            .resolve(strict=True)
+                .resolve(strict=True)
         )
     except FileNotFoundError:
-        print("Unable to read app info for " + app_path +
-                ". Is it an absolute path to the app?")
+        print(
+            "Unable to read app info for " +
+            app_path +
+            ". Is it an absolute path to the app?"
+        )
         return
 
     # Get identifiers from app info
@@ -101,9 +105,9 @@ def get_identifiers(app_path, verbose=False):
 
     return identifiers
 
-
 def search_directories(directories, identifiers):
-    """Search directories recursively for the identifiers.
+    """
+    Search directories recursively for the identifiers.
 
     Arguments:
         directories - Directories to look in
@@ -120,9 +124,9 @@ def search_directories(directories, identifiers):
 
     return matches
 
-
 def search_directory(directory, identifiers):
-    """Search directory recursively for the identifiers.
+    """
+    Search directory recursively for the identifiers.
 
     Arguments:
         directory - Directory to look in
@@ -150,9 +154,9 @@ def search_directory(directory, identifiers):
 
     return matches
 
-
 def move_to_trash(items, verbose=False):
-    """Move files and directories to the trash.
+    """
+    Move files and directories to the trash.
 
     Arguments:
         items - Files and directories to move to the trash
@@ -176,11 +180,12 @@ def move_to_trash(items, verbose=False):
     subprocess.run(
         command,
         stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL)
-
+        stderr=subprocess.DEVNULL
+    )
 
 def print_verbose(message="", verbose=False):
-    """Print message if verbose argument is True.
+    """
+    Print message if verbose argument is True.
 
     Arguments:
         message - Message to print
@@ -189,7 +194,6 @@ def print_verbose(message="", verbose=False):
 
     if verbose:
         print(message)
-
 
 if __name__ == "__main__":
     start_app()
