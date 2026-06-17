@@ -1,0 +1,28 @@
+= heel
+Al Idian <al.idian@acm.org>
+:description: Disable the macOS keyboard
+
+`heel` disables the macOS keyboard, including special keys like brightness and volume.
+Press ctrl-c to re-enable it.
+Please note this software is provided "as is", without warranty of any kind.
+
+Usage:
+
+1. Clone this repo.
+2. Grant Accessibility permission to your terminal in System Settings > Privacy & Security > Accessibility.
+3. (Optional) Set permissions and view the help text.
+
++
+[source,bash]
+----
+chmod 700 ./heel
+./heel --help
+----
+
+4. Run `heel`.
+
++
+[source,bash]
+----
+./heel
+----

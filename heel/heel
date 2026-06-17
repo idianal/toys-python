@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+
+# heel - Disable the macOS keyboard
+
+import argparse
+import ctypes
+import ctypes.util
+import sys
+
+HID_EVENT_TAP = 0
+HEAD_INSERT = 0
+TAP_OPTION_DEFAULT = 0
+FIELD_KEYCODE = 9
+FLAG_CONTROL = 0x00040000
+KEYCODE_C = 8
+
+EVENT_KEY_DOWN = 10
+EVENT_KEY_UP = 11
+EVENT_FLAGS_CHANGED = 12
+EVENT_SYSDEFINED = 14
+
+EVENT_MASK = (
+    (1 << EVENT_KEY_DOWN) |
+    (1 << EVENT_KEY_UP) |
+    (1 << EVENT_FLAGS_CHANGED) |
+    (1 << EVENT_SYSDEFINED)
+)
+
+def start_app():
+    """Disable the macOS keyboard."""
+
+    get_args()
+    core_graphics, core_foundation = setup_frameworks()
+    check_accessibility()
+
+    event_tap, tap_callback = disable_keyboard(core_graphics, core_foundation)
+    print("Keyboard disabled.")
+    print("Press ctrl-c to re-enable...")
+
+    core_foundation.CFRunLoopRun()
+
+    enable_keyboard(core_graphics, event_tap)
+    print()
+    print("Keyboard re-enabled.")
+
+def get_args():
+    """
+    Configure argument parser including help text.
+
+    Returns:
+        Parsed arguments namespace
+    """
+
+    parser = argparse.ArgumentParser(
+        description="heel - disable the macos keyboard",
+        epilog="https://github.com/idianal/toys-python/heel"
+    )
+
+    return parser.parse_args()
+
+def setup_frameworks():
+    """
+    Load CoreGraphics and CoreFoundation and configure function signatures.
+
+    Returns:
+        Tuple of (core_graphics, core_foundation) CDLL handles
+    """
+
+    core_graphics   = ctypes.CDLL(ctypes.util.find_library("CoreGraphics"))
+    core_foundation = ctypes.CDLL(ctypes.util.find_library("CoreFoundation"))
+
+    core_graphics.CGEventTapCreate.restype = ctypes.c_void_p
+    core_graphics.CGEventTapCreate.argtypes = [
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint32,
+        ctypes.c_uint64,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+
+    core_graphics.CGEventTapEnable.restype = None
+    core_graphics.CGEventTapEnable.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+
+    core_graphics.CGEventGetIntegerValueField.restype = ctypes.c_int64
+    core_graphics.CGEventGetIntegerValueField.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32
+    ]
+
+    core_graphics.CGEventGetFlags.restype = ctypes.c_uint64
+    core_graphics.CGEventGetFlags.argtypes = [ctypes.c_void_p]
+
+    core_foundation.CFMachPortCreateRunLoopSource.restype = ctypes.c_void_p
+    core_foundation.CFMachPortCreateRunLoopSource.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_long,
+    ]
+
+    core_foundation.CFRunLoopAddSource.restype = None
+    core_foundation.CFRunLoopAddSource.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    ]
+
+    core_foundation.CFRunLoopGetMain.restype = ctypes.c_void_p
+    core_foundation.CFRunLoopGetMain.argtypes = []
+
+    core_foundation.CFRunLoopRun.restype = None
+    core_foundation.CFRunLoopRun.argtypes = []
+
+    core_foundation.CFRunLoopStop.restype = None
+    core_foundation.CFRunLoopStop.argtypes = [ctypes.c_void_p]
+
+    return core_graphics, core_foundation
+
+def check_accessibility():
+    """Check that Accessibility permission is granted."""
+
+    app_services = ctypes.CDLL(
+        "/System/Library/Frameworks/ApplicationServices.framework/ApplicationServices"
+    )
+    app_services.AXIsProcessTrusted.restype = ctypes.c_bool
+    app_services.AXIsProcessTrusted.argtypes = []
+
+    if not app_services.AXIsProcessTrusted():
+        print("Accessibility permission is required.")
+        print("To enable, see System Settings > Privacy & Security > Accessibility.")
+        sys.exit(1)
+
+def disable_keyboard(core_graphics, core_foundation):
+    """
+    Create and enable a CGEventTap that swallows all keyboard events.
+
+    Arguments:
+        core_graphics - CoreGraphics CDLL handle
+        core_foundation - CoreFoundation CDLL handle
+
+    Returns:
+        Tuple of (event_tap, tap_callback)
+    """
+
+    callback_type = ctypes.CFUNCTYPE(
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_void_p,
+        ctypes.c_void_p,
+    )
+
+    main_run_loop = core_foundation.CFRunLoopGetMain()
+
+    def keyboard_callback(proxy, event_type, event_reference, _):
+        """
+        Intercept keyboard events.
+
+        Stops the run loop (re-enabling the keyboard) when ctrl-c is detected.
+        Swallows all other keyboard events by returning NULL.
+
+        Arguments:
+            proxy - CGEventTapProxy (opaque)
+            event_type - CGEventType of the incoming event
+            event_reference - CGEventRef for the incoming event
+
+        Returns:
+            None (NULL) to swallow the event
+        """
+
+        if event_type == EVENT_KEY_DOWN:
+            keycode = core_graphics.CGEventGetIntegerValueField(
+                event_reference,
+                FIELD_KEYCODE
+            )
+
+            flags = core_graphics.CGEventGetFlags(event_reference)
+            if keycode == KEYCODE_C and (flags & FLAG_CONTROL):
+                core_foundation.CFRunLoopStop(main_run_loop)
+
+        return None
+
+    # Keep a reference so the CFUNCTYPE wrapper isn't garbage-collected
+    tap_callback = callback_type(keyboard_callback)
+
+    event_tap = core_graphics.CGEventTapCreate(
+        HID_EVENT_TAP,
+        HEAD_INSERT,
+        TAP_OPTION_DEFAULT,
+        EVENT_MASK,
+        tap_callback,
+        None,
+    )
+
+    if not event_tap:
+        print("Failed to create event tap.")
+        sys.exit(1)
+
+    source = core_foundation.CFMachPortCreateRunLoopSource(None, event_tap, 0)
+    mode = ctypes.c_void_p.in_dll(core_foundation, "kCFRunLoopDefaultMode")
+    core_foundation.CFRunLoopAddSource(main_run_loop, source, mode)
+
+    core_graphics.CGEventTapEnable(event_tap, True)
+
+    return event_tap, tap_callback
+
+def enable_keyboard(core_graphics, event_tap):
+    """
+    Disable and release the CGEventTap.
+
+    Arguments:
+        core_graphics - CoreGraphics CDLL handle
+        event_tap - CGEventTapRef to disable
+    """
+
+    if event_tap:
+        core_graphics.CGEventTapEnable(event_tap, False)
+
+if __name__ == "__main__":
+    start_app()
